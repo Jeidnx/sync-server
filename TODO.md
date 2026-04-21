@@ -1,0 +1,5 @@
+- OpenAPI docs
+- Auth middleware
+- Subscriptions support
+- Playlists support
+- Configuration (secret key, database backend selection)
