@@ -1,29 +1,18 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::middleware::Next;
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, delete, error, post, web};
-use argon2::password_hash::SaltString;
-use argon2::password_hash::rand_core::OsRng;
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use diesel::result::DatabaseErrorKind;
-use hmac::{Hmac, KeyInit, Mac as _};
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use sha2::Sha256;
 use uuid::Uuid;
 
 use crate::database::user::{
     delete_existing_user, find_user_by_id, find_user_by_name_hash, insert_new_user,
 };
-use crate::dto::{JwtClaims, LoginResponse};
+use crate::dto::LoginResponse;
 use crate::handlers::ScopedHandler;
 use crate::models::User;
-use crate::util::bytes_to_hex_string;
+use crate::util::{generate_jwt, hash_password, hash_username, verify_jwt, verify_password};
 use crate::{WebData, dto, models};
-
-// TODO: make configurable
-const SECRET_KEY: &str = "secret";
 
 const AUTH_HEADER_KEY: &str = "Authorization";
 
@@ -176,58 +165,4 @@ async fn auth_middleware(
     // pre-processing
     next.call(req).await
     // post-processing
-}
-
-// TODO: move into util
-fn generate_jwt(user: &User) -> jsonwebtoken::errors::Result<String> {
-    let key = EncodingKey::from_secret(SECRET_KEY.as_bytes());
-    // tokens are valid for one year, should be enough in most cases
-    let expiration_date = SystemTime::now()
-        .checked_add(Duration::from_hours(365 * 24))
-        .unwrap()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
-
-    let claims = JwtClaims {
-        sub: user.id.clone(),
-        exp: expiration_date as usize,
-    };
-    encode(&Header::default(), &claims, &key)
-}
-
-/// Returns the User ID on success.
-fn verify_jwt(encoded_jwt: &str) -> jsonwebtoken::errors::Result<String> {
-    let key = DecodingKey::from_secret(SECRET_KEY.as_bytes());
-    let claims: JwtClaims = decode(encoded_jwt.as_bytes(), &key, &Validation::default())?.claims;
-    Ok(claims.sub)
-}
-
-fn argon2_instance<'a>() -> Argon2<'a> {
-    Argon2::default()
-}
-
-fn hash_password(password: &str) -> String {
-    let salt = SaltString::generate(&mut OsRng);
-    argon2_instance()
-        .hash_password(password.as_bytes(), &salt)
-        .unwrap()
-        .to_string()
-}
-
-fn verify_password(password: &str, password_hash: &str) -> bool {
-    let Ok(password_hash) = PasswordHash::new(password_hash) else {
-        return false;
-    };
-    argon2_instance()
-        .verify_password(password.as_bytes(), &password_hash)
-        .is_ok()
-}
-
-fn hash_username(username: &str) -> String {
-    let mut mac = Hmac::<Sha256>::new_from_slice(username.as_bytes()).unwrap();
-    mac.update(SECRET_KEY.as_bytes());
-
-    let result = &mac.finalize().into_bytes();
-    bytes_to_hex_string(result)
 }
