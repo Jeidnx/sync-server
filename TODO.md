@@ -1,1 +1,0 @@
-- Better Playlists Permission Handling

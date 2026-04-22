@@ -46,16 +46,10 @@ pub async fn update_existing_playlist(
 pub async fn delete_playlist_by_id(
     conn: &mut DbConnection,
     playlist_id_: &str,
-    user_id_: &str,
 ) -> Result<(), DbError> {
-    diesel::delete(
-        playlist.filter(
-            id.eq(playlist_id_.to_string())
-                .and(user_id.eq(user_id_.to_string())),
-        ),
-    )
-    .execute(conn)
-    .await?;
+    diesel::delete(playlist.filter(id.eq(playlist_id_.to_string())))
+        .execute(conn)
+        .await?;
 
     diesel::delete(playlist_video_member.filter(playlist_id.eq(playlist_id_.to_string())))
         .execute(conn)
@@ -106,11 +100,20 @@ pub async fn remove_video_from_playlist(
 pub async fn get_playlist_by_id(
     conn: &mut DbConnection,
     playlist_id_: &str,
-) -> Result<(Playlist, Vec<Video>), DbError> {
+) -> Result<Playlist, DbError> {
     let playlist_ = playlist
         .filter(id.eq(playlist_id_.to_string()))
         .first(conn)
         .await?;
+
+    Ok(playlist_)
+}
+
+pub async fn get_playlist_by_id_with_videos(
+    conn: &mut DbConnection,
+    playlist_id_: &str,
+) -> Result<(Playlist, Vec<Video>), DbError> {
+    let playlist_ = get_playlist_by_id(conn, playlist_id_).await?;
 
     let videos = playlist_video_member
         .filter(playlist_id.eq(playlist_id_.to_string()))
