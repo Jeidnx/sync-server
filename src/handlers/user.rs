@@ -47,6 +47,11 @@ async fn register_user(
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
 
+    let password_length = form.password.len();
+    if password_length < 8 {
+        return Err(error::ErrorBadRequest("password too short (8 chars min)"));
+    }
+
     let user = models::User {
         id: Uuid::now_v7().to_string(),
         name_hash: hash_username(&form.name),

@@ -1,2 +1,1 @@
-- Password min-length validation
 - Better Playlists Permission Handling
