@@ -12,7 +12,7 @@ use crate::database::user::{
 use crate::dto::LoginResponse;
 use crate::handlers::{ScopedHandler, get_user};
 use crate::util::{generate_jwt, hash_password, hash_username, verify_jwt, verify_password};
-use crate::{WebData, dto, get_db_conn, models};
+use crate::{SECRET_KEY, WebData, dto, get_db_conn, models};
 
 const AUTH_HEADER_KEY: &str = "Authorization";
 
@@ -54,7 +54,7 @@ async fn register_user(
 
     let user = models::User {
         id: Uuid::now_v7().to_string(),
-        name_hash: hash_username(&form.name),
+        name_hash: hash_username(&form.name, SECRET_KEY.as_bytes()),
         password_hash: hash_password(&form.password),
     };
 
@@ -67,7 +67,7 @@ async fn register_user(
             _ => error::ErrorInternalServerError(err),
         })?;
 
-    match generate_jwt(&user) {
+    match generate_jwt(&user, SECRET_KEY.as_bytes()) {
         Ok(jwt) => {
             let resp = LoginResponse { jwt };
             Ok(HttpResponse::Created().json(resp))
@@ -84,7 +84,7 @@ async fn login_user(
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
 
-    let name = hash_username(&form.name);
+    let name = hash_username(&form.name, SECRET_KEY.as_bytes());
     let Some(user) = find_user_by_name_hash(&mut conn, &name)
         .await
         .ok()
@@ -97,7 +97,7 @@ async fn login_user(
         return Err(error::ErrorForbidden("invalid username or password"));
     }
 
-    match generate_jwt(&user) {
+    match generate_jwt(&user, SECRET_KEY.as_bytes()) {
         Ok(jwt) => {
             let resp = LoginResponse { jwt };
             Ok(HttpResponse::Ok().json(resp))
@@ -143,7 +143,7 @@ pub async fn auth_middleware(
     let Some(jwt) = auth_cookie.or(auth_header) else {
         return Err(error::ErrorUnauthorized("missing authentication token"));
     };
-    let Ok(user_id) = verify_jwt(&jwt) else {
+    let Ok(user_id) = verify_jwt(&jwt, SECRET_KEY.as_bytes()) else {
         return Err(error::ErrorUnauthorized("invalid authentication token"));
     };
 

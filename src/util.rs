@@ -1,5 +1,3 @@
-use std::cell::LazyCell;
-use std::env;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use argon2::password_hash::SaltString;
@@ -12,11 +10,6 @@ use sha2::Sha256;
 use crate::dto::JwtClaims;
 use crate::models::User;
 
-// TODO: make configurable
-const SECRET_KEY: LazyCell<String> = LazyCell::new(|| {
-    env::var("SECRET_KEY").expect("Please set the `SECRET_KEY` env variable to a random value!")
-});
-
 pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
     String::from("0x")
         + &bytes
@@ -26,8 +19,8 @@ pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
             .join("")
 }
 
-pub fn generate_jwt(user: &User) -> jsonwebtoken::errors::Result<String> {
-    let key = EncodingKey::from_secret(SECRET_KEY.as_bytes());
+pub fn generate_jwt(user: &User, secret_key: &[u8]) -> jsonwebtoken::errors::Result<String> {
+    let key = EncodingKey::from_secret(secret_key);
     // tokens are valid for one year, should be enough in most cases
     let expiration_date = SystemTime::now()
         .checked_add(Duration::from_hours(365 * 24))
@@ -44,8 +37,8 @@ pub fn generate_jwt(user: &User) -> jsonwebtoken::errors::Result<String> {
 }
 
 /// Returns the User ID on success.
-pub fn verify_jwt(encoded_jwt: &str) -> jsonwebtoken::errors::Result<String> {
-    let key = DecodingKey::from_secret(SECRET_KEY.as_bytes());
+pub fn verify_jwt(encoded_jwt: &str, secret_key: &[u8]) -> jsonwebtoken::errors::Result<String> {
+    let key = DecodingKey::from_secret(secret_key);
     let claims: JwtClaims = decode(encoded_jwt.as_bytes(), &key, &Validation::default())?.claims;
     Ok(claims.sub)
 }
@@ -72,9 +65,9 @@ pub fn verify_password(password: &str, password_hash: &str) -> bool {
 }
 
 /// Generate HMAC of username. Usernames are not stored in plaintext for better anonymity.
-pub fn hash_username(username: &str) -> String {
+pub fn hash_username(username: &str, secret_key: &[u8]) -> String {
     let mut mac = Hmac::<Sha256>::new_from_slice(username.as_bytes()).unwrap();
-    mac.update(SECRET_KEY.as_bytes());
+    mac.update(secret_key);
 
     let result = &mac.finalize().into_bytes();
     bytes_to_hex_string(result)

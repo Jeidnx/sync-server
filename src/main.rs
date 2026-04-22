@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate diesel;
 
-use std::{env, io};
+use std::{env, io, sync::LazyLock};
 
 use actix_web::{App, HttpServer, middleware, web};
 use diesel_async::pooled_connection::{AsyncDieselConnectionManager, bb8::Pool};
@@ -21,6 +21,10 @@ mod handlers;
 mod models;
 mod schema;
 mod util;
+
+static SECRET_KEY: LazyLock<String> = LazyLock::new(|| {
+    env::var("SECRET_KEY").expect("Please set the `SECRET_KEY` env variable to a random value!")
+});
 
 #[cfg(all(feature = "sqlite", feature = "postgres"))]
 compile_error!("Sqlite and Postgres are mutually exclusive and cannot be enabled together");
