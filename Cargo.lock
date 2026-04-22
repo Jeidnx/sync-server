@@ -680,6 +680,7 @@ checksum = "b95864e58597509106f1fddfe0600de7e589e1fddddd87f54eee0a49fd111bbc"
 dependencies = [
  "bb8",
  "diesel",
+ "diesel_migrations",
  "futures-core",
  "futures-util",
  "pin-project-lite",

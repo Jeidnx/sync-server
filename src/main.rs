@@ -95,13 +95,24 @@ async fn initialize_db_pool() -> DbPool {
 }
 
 async fn run_migrations(pool: &DbPool) {
-    let pool_clone = pool.clone();
-    let mut conn = get_db_conn!(pool_clone);
-    conn.spawn_blocking(|conn| {
-        // we panic if migrations fail, because otherwise the app wouldn't work anyways
-        conn.run_pending_migrations(MIGRATIONS).unwrap();
-        Ok(())
-    })
-    .await
-    .unwrap();
+    // https://github.com/diesel-rs/diesel_async/discussions/268
+    let conn = pool.get_owned().await.unwrap();
+
+    #[cfg(feature = "sqlite")]
+    {
+        let mut conn = conn;
+        conn.spawn_blocking(|conn| {
+            // we panic if migrations fail, because otherwise the app wouldn't work anyways
+            conn.run_pending_migrations(MIGRATIONS).unwrap();
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
+    #[cfg(feature = "postgres")]
+    {
+        let mut harness = diesel_async::AsyncMigrationHarness::new(conn);
+        harness.run_pending_migrations(MIGRATIONS).unwrap();
+    }
 }
