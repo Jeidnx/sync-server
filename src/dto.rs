@@ -23,6 +23,11 @@ pub struct DeleteUser {
     pub password: String,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub struct UnsubscribeChannel {
+    pub channel_id: String,
+}
+
 /// Claims to store inside the JWT Token
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JwtClaims {

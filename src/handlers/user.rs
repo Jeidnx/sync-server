@@ -140,7 +140,7 @@ async fn delete_user(
 }
 
 /// Middleware that ensures that the user is authenticated.
-async fn auth_middleware(
+pub async fn auth_middleware(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {

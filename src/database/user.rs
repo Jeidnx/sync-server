@@ -1,10 +1,10 @@
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 
+use crate::database::DbError;
 use crate::models::User;
 use crate::{DbConnection, models};
 
-type DbError = diesel::result::Error;
 use crate::schema::user::dsl::*;
 
 pub async fn find_user_by_id(

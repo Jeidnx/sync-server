@@ -4,6 +4,7 @@ use actix_web::{
 };
 use utoipa_actix_web::scope::Scope;
 
+pub mod subscriptions;
 pub mod user;
 
 // https://github.com/actix/actix-web/discussions/3074
