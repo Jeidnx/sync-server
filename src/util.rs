@@ -1,3 +1,5 @@
+use std::cell::LazyCell;
+use std::env;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use argon2::password_hash::SaltString;
@@ -11,7 +13,9 @@ use crate::dto::JwtClaims;
 use crate::models::User;
 
 // TODO: make configurable
-const SECRET_KEY: &str = "secret";
+const SECRET_KEY: LazyCell<String> = LazyCell::new(|| {
+    env::var("SECRET_KEY").expect("Please set the `SECRET_KEY` env variable to a random value!")
+});
 
 pub fn bytes_to_hex_string(bytes: &[u8]) -> String {
     String::from("0x")

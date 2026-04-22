@@ -4,11 +4,7 @@ extern crate diesel;
 use std::{env, io};
 
 use actix_web::{App, HttpServer, middleware, web};
-use diesel::SqliteConnection;
-use diesel_async::{
-    pooled_connection::{AsyncDieselConnectionManager, bb8::Pool},
-    sync_connection_wrapper::SyncConnectionWrapper,
-};
+use diesel_async::pooled_connection::{AsyncDieselConnectionManager, bb8::Pool};
 use dotenvor::dotenv;
 use utoipa_actix_web::AppExt;
 use utoipa_scalar::{Scalar, Servable};
@@ -25,13 +21,23 @@ mod models;
 mod schema;
 mod util;
 
-type DbConnection = SyncConnectionWrapper<SqliteConnection>;
+#[cfg(all(feature = "sqlite", feature = "postgres"))]
+compile_error!("Sqlite and Postgres are mutually exclusive and cannot be enabled together");
+
+#[cfg(feature = "sqlite")]
+type DbConnection =
+    diesel_async::sync_connection_wrapper::SyncConnectionWrapper<diesel::SqliteConnection>;
+#[cfg(feature = "postgres")]
+type DbConnection = diesel_async::AsyncPgConnection;
+
 type DbPool = Pool<DbConnection>;
 type WebData = web::Data<DbPool>;
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
+    // load env from .env file
     unsafe { dotenv() }.ok();
+
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // initialize DB pool outside `HttpServer::new` so that it is shared across all workers

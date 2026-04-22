@@ -35,8 +35,9 @@ pub async fn add_subscription_by_user_id(
         user_id: user_id_.to_string(),
         channel_id: channel_.id.clone(),
     };
-    diesel::insert_or_ignore_into(subscription)
+    diesel::insert_into(subscription)
         .values(&new_subscription)
+        .on_conflict_do_nothing()
         .execute(conn)
         .await?;
 

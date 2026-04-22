@@ -16,8 +16,9 @@ pub async fn create_new_playlist(
     let mut playlist_ = playlist_.clone();
     playlist_.id = Uuid::now_v7().to_string();
 
-    let created_playlist = diesel::insert_or_ignore_into(playlist)
+    let created_playlist = diesel::insert_into(playlist)
         .values(playlist_)
+        .on_conflict_do_nothing()
         .returning(Playlist::as_returning())
         .get_result(conn)
         .await?;
@@ -75,8 +76,9 @@ pub async fn add_video_to_playlist(
         playlist_id: playlist_id_.to_string(),
         video_id: video_.id.clone(),
     };
-    diesel::insert_or_ignore_into(playlist_video_member)
+    diesel::insert_into(playlist_video_member)
         .values(new_playlist_video_member)
+        .on_conflict_do_nothing()
         .execute(conn)
         .await?;
 

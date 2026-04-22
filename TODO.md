@@ -1,1 +1,2 @@
-- Configuration (secret key, database backend selection)
+- Password min-length validation
+- Better Playlists Permission Handling
