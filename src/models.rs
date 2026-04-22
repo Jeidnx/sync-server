@@ -10,12 +10,6 @@ pub struct User {
     pub password_hash: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct NewUser {
-    pub name: String,
-    pub password: String,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = channel)]
 pub struct Channel {

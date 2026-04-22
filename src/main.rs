@@ -11,9 +11,10 @@ use diesel_async::{
 };
 use dotenvor::dotenv;
 
-use crate::handlers::user::{add_user, get_user};
+use crate::handlers::{ScopedHandler, user::UserHandler};
 
 mod database;
+mod dto;
 mod handlers;
 mod models;
 mod schema;
@@ -21,6 +22,7 @@ mod util;
 
 type DbConnection = SyncConnectionWrapper<SqliteConnection>;
 type DbPool = Pool<DbConnection>;
+type WebData = web::Data<DbPool>;
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
@@ -36,8 +38,7 @@ async fn main() -> io::Result<()> {
         App::new()
             // add DB pool handle to app data; enables use of `web::Data<DbPool>` extractor
             .app_data(web::Data::new(pool.clone()))
-            .service(add_user)
-            .service(get_user)
+            .service(UserHandler::get_service())
             .wrap(middleware::Logger::default())
     })
     .bind(("127.0.0.1", 8080))?

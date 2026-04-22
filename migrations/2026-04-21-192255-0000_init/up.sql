@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS user(
     id VARCHAR PRIMARY KEY NOT NULL,
-    name_hash VARCHAR NOT NULL,
+    name_hash VARCHAR NOT NULL UNIQUE,
     password_hash VARCHAR NOT NULL
 );
 
