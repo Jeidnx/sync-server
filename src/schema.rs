@@ -45,8 +45,8 @@ diesel::table! {
     video (id) {
         id -> Text,
         title -> Text,
-        upload_date -> Text,
-        uploader -> Text,
+        upload_date -> BigInt,
+        uploader_id -> Text,
         thumbnail_url -> Text,
         duration -> Integer,
     }
@@ -57,7 +57,7 @@ diesel::joinable!(playlist_video_member -> playlist (playlist_id));
 diesel::joinable!(playlist_video_member -> video (video_id));
 diesel::joinable!(subscription -> channel (channel_id));
 diesel::joinable!(subscription -> user (user_id));
-diesel::joinable!(video -> channel (uploader));
+diesel::joinable!(video -> channel (uploader_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     channel,

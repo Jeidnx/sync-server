@@ -5,12 +5,15 @@ use utoipa_actix_web::scope;
 
 use crate::{
     WebData,
-    database::playlist::{
-        add_video_to_playlist, create_new_playlist, delete_playlist_by_id, get_playlist_by_id,
-        get_playlist_by_id_with_videos, get_playlists_by_user_id, remove_video_from_playlist,
-        update_existing_playlist,
+    database::{
+        channel::create_or_update_channel,
+        playlist::{
+            add_video_to_playlist, create_new_playlist, delete_playlist_by_id, get_playlist_by_id,
+            get_playlist_by_id_with_videos, get_playlists_by_user_id, remove_video_from_playlist,
+            update_existing_playlist,
+        },
     },
-    dto::{CreatePlaylist, PlaylistResponse},
+    dto::{CreatePlaylist, CreateVideo, PlaylistResponse},
     get_db_conn,
     handlers::{ScopedHandler, get_user, user::auth_middleware},
     models::{Playlist, Video},
@@ -158,7 +161,7 @@ async fn add_to_playlist(
     req: HttpRequest,
     pool: WebData,
     playlist_id: web::Path<String>,
-    video: web::Json<Video>,
+    video_data: web::Json<CreateVideo>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
     let user_id = get_user(&req).id;
@@ -169,6 +172,20 @@ async fn add_to_playlist(
     if playlist.user_id != user_id {
         return Err(error::ErrorForbidden("not the owner of the playlist"));
     }
+
+    // store channel information first before storing video to ensure data integrity
+    create_or_update_channel(&mut conn, &video_data.uploader)
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+
+    let video = Video {
+        id: video_data.id.clone(),
+        title: video_data.title.clone(),
+        upload_date: video_data.upload_date,
+        uploader_id: video_data.uploader.id.clone(),
+        thumbnail_url: video_data.thumbnail_url.clone(),
+        duration: video_data.duration,
+    };
 
     match add_video_to_playlist(&mut conn, &playlist_id, &video).await {
         Ok(()) => Ok(HttpResponse::Created()),

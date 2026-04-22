@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::models::{Playlist, Video};
+use crate::models::{Channel, Playlist, Video};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct RegisterUser {
@@ -41,6 +41,16 @@ pub struct CreatePlaylist {
 pub struct PlaylistResponse {
     pub playlist: Playlist,
     pub videos: Vec<Video>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreateVideo {
+    pub id: String,
+    pub title: String,
+    pub upload_date: i64,
+    pub uploader: Channel,
+    pub thumbnail_url: String,
+    pub duration: i32,
 }
 
 /// Claims to store inside the JWT Token

@@ -42,14 +42,16 @@ pub struct Playlist {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, ToSchema)]
-#[diesel(belongs_to(Channel, foreign_key = uploader))]
+#[diesel(belongs_to(Channel, foreign_key = uploader_id))]
 #[diesel(table_name = video)]
 pub struct Video {
     pub id: String,
     pub title: String,
-    pub upload_date: String,
-    pub uploader: String,
+    pub upload_date: i64,
+    /// ID of the uploader.
+    pub uploader_id: String,
     pub thumbnail_url: String,
+    /// Duration in seconds.
     pub duration: i32,
 }
 

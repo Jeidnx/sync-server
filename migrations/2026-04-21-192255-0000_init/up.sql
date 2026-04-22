@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS video
 (
     id VARCHAR(11) PRIMARY KEY NOT NULL,
     title VARCHAR NOT NULL,
-    upload_date VARCHAR NOT NULL,
-    uploader VARCHAR NOT NULL REFERENCES channel(id),
+    upload_date BIGINT NOT NULL,
+    uploader_id VARCHAR NOT NULL REFERENCES channel(id),
     thumbnail_url VARCHAR NOT NULL,
     duration INTEGER NOT NULL
 );
