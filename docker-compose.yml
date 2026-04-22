@@ -5,7 +5,7 @@ services:
     build:
       context: .
       args:
-        - "DATABASE_BACKEND=sqlite" # alternatively: postgres
+        - "DATABASE_BACKEND=sqlite"
     environment:
       - "DATABASE_URL=./db.sqlite"
       - "SECRET_KEY=changeme"
