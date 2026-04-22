@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS user(
 
 CREATE TABLE IF NOT EXISTS channel
 (
-    id VARCHAR PRIMARY KEY NOT NULL,
+    id VARCHAR(24) PRIMARY KEY NOT NULL,
     name VARCHAR NOT NULL,
     avatar VARCHAR NOT NULL,
     verified BOOLEAN NOT NULL
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS playlist
     thumbnail_url VARCHAR NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS playlist_video
+CREATE TABLE IF NOT EXISTS video
 (
     id VARCHAR(11) PRIMARY KEY NOT NULL,
     title VARCHAR NOT NULL,
@@ -44,6 +44,6 @@ CREATE TABLE IF NOT EXISTS playlist_video
 CREATE TABLE IF NOT EXISTS playlist_video_member
 (
     playlist_id VARCHAR NOT NULL REFERENCES playlist(id),
-    video_id VARCHAR NOT NULL REFERENCES playlist_video(id),
+    video_id VARCHAR NOT NULL REFERENCES video(id),
     PRIMARY KEY (playlist_id, video_id)
 )

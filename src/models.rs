@@ -48,8 +48,8 @@ pub struct Playlist {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(belongs_to(Channel, foreign_key = uploader))]
-#[diesel(table_name = playlist_video)]
-pub struct PlaylistVideo {
+#[diesel(table_name = video)]
+pub struct Video {
     pub id: String,
     pub title: String,
     pub upload_date: String,
@@ -61,7 +61,7 @@ pub struct PlaylistVideo {
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable)]
 #[diesel(primary_key(playlist_id, video_id))]
 #[diesel(belongs_to(Playlist))]
-#[diesel(belongs_to(PlaylistVideo, foreign_key = video_id))]
+#[diesel(belongs_to(Video))]
 #[diesel(table_name = playlist_video_member)]
 pub struct PlaylistVideoMember {
     pub playlist_id: String,
