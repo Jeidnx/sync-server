@@ -41,7 +41,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: suffix=${{ matrix.database-backend }}
+          flavor: suffix=-${{ matrix.database-backend }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
