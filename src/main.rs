@@ -5,6 +5,7 @@ use std::{env, io, sync::LazyLock};
 
 use actix_web::{App, HttpServer, middleware, web};
 use diesel_async::pooled_connection::{AsyncDieselConnectionManager, bb8::Pool};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use dotenvor::dotenv;
 use utoipa::openapi::LicenseBuilder;
 use utoipa_actix_web::AppExt;
@@ -25,6 +26,8 @@ mod util;
 static SECRET_KEY: LazyLock<String> = LazyLock::new(|| {
     env::var("SECRET_KEY").expect("Please set the `SECRET_KEY` env variable to a random value!")
 });
+
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations/");
 
 #[cfg(all(feature = "sqlite", feature = "postgres"))]
 compile_error!("Sqlite and Postgres are mutually exclusive and cannot be enabled together");
@@ -47,6 +50,7 @@ async fn main() -> io::Result<()> {
 
     // initialize DB pool outside `HttpServer::new` so that it is shared across all workers
     let pool = initialize_db_pool().await;
+    run_migrations(&pool).await;
 
     log::info!("starting HTTP server at http://localhost:8080");
 
@@ -88,4 +92,16 @@ async fn initialize_db_pool() -> DbPool {
 
     let connection_manager = AsyncDieselConnectionManager::<DbConnection>::new(db_url);
     Pool::builder().build(connection_manager).await.unwrap()
+}
+
+async fn run_migrations(pool: &DbPool) {
+    let pool_clone = pool.clone();
+    let mut conn = get_db_conn!(pool_clone);
+    conn.spawn_blocking(|conn| {
+        // we panic if migrations fail, because otherwise the app wouldn't work anyways
+        conn.run_pending_migrations(MIGRATIONS).unwrap();
+        Ok(())
+    })
+    .await
+    .unwrap();
 }
