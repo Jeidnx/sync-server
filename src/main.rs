@@ -4,7 +4,7 @@ extern crate diesel;
 use std::{env, io, sync::LazyLock};
 
 use actix_web::{App, HttpServer, middleware, web};
-use diesel_async::pooled_connection::{AsyncDieselConnectionManager, bb8::Pool};
+use diesel_async::pooled_connection::{AsyncDieselConnectionManager, PoolError, bb8::Pool};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use dotenvor::dotenv;
 use utoipa::openapi::LicenseBuilder;
@@ -49,7 +49,12 @@ async fn main() -> io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // initialize DB pool outside `HttpServer::new` so that it is shared across all workers
-    let pool = initialize_db_pool().await;
+    let pool = match initialize_db_pool().await {
+        Ok(pool) => pool,
+        Err(err) => panic!("{}", err),
+    };
+
+    // run database migrations (must be done BEFORE the server is started!)
     run_migrations(&pool).await;
 
     log::info!("starting HTTP server at http://localhost:8080");
@@ -87,11 +92,11 @@ async fn main() -> io::Result<()> {
 /// Initialize database connection pool based on `DATABASE_URL` environment variable.
 ///
 /// See more: <https://docs.rs/diesel-async/latest/diesel_async/pooled_connection/index.html#modules>.
-async fn initialize_db_pool() -> DbPool {
+async fn initialize_db_pool() -> Result<DbPool, PoolError> {
     let db_url = env::var("DATABASE_URL").expect("Env var `DATABASE_URL` not set");
 
     let connection_manager = AsyncDieselConnectionManager::<DbConnection>::new(db_url);
-    Pool::builder().build(connection_manager).await.unwrap()
+    Pool::builder().build(connection_manager).await
 }
 
 async fn run_migrations(pool: &DbPool) {
@@ -112,7 +117,12 @@ async fn run_migrations(pool: &DbPool) {
 
     #[cfg(feature = "postgres")]
     {
-        let mut harness = diesel_async::AsyncMigrationHarness::new(conn);
-        harness.run_pending_migrations(MIGRATIONS).unwrap();
+        // must be spawned blocking, otherwise this would raise 'can call blocking only when running on the multi-threaded runtime': see https://github.com/rwf2/Rocket/pull/2648
+        actix_web::rt::task::spawn_blocking(move || {
+            let mut harness = diesel_async::AsyncMigrationHarness::new(conn);
+            harness.run_pending_migrations(MIGRATIONS).unwrap();
+        })
+        .await
+        .unwrap();
     }
 }

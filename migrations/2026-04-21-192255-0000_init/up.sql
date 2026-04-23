@@ -1,7 +1,8 @@
 -- IMPORTANT: to successfully create tables, there may not be any trailing comma in the create statement
 -- idk who thought that this would be a good idea, but well ...
 
-CREATE TABLE IF NOT EXISTS user(
+CREATE TABLE IF NOT EXISTS user
+(
     id VARCHAR PRIMARY KEY NOT NULL,
     name_hash VARCHAR NOT NULL UNIQUE,
     password_hash VARCHAR NOT NULL
