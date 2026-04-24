@@ -6,7 +6,8 @@ description = "Server to sync user data (subscriptions, playlists, ...) between 
 license = "AGPL-3.0-or-later"
 
 [dependencies]
-# Web server
+# Web server and tests runtime
+actix-rt = "2.11"
 actix-web = "4.13"
 
 # OpenAPI Docs
@@ -38,6 +39,11 @@ argon2 = { version = "0.5.3", features = ["std"] }
 hmac = "0.13"
 jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 sha2 = "0.11.0"
+
+# YouTube scraping
+chrono = "0.4"
+reqwest = "0.13"
+roxmltree = "0.21"
 
 [features]
 default = ["sqlite"]
