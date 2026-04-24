@@ -4,7 +4,17 @@ use utoipa::ToSchema;
 use super::schema::*;
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, AsChangeset, ToSchema,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    Queryable,
+    Selectable,
+    Insertable,
+    AsChangeset,
+    ToSchema,
+    Eq,
+    PartialEq,
 )]
 #[diesel(table_name = account)]
 pub struct Account {
@@ -14,7 +24,17 @@ pub struct Account {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, AsChangeset, ToSchema,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    Queryable,
+    Selectable,
+    Insertable,
+    AsChangeset,
+    ToSchema,
+    Eq,
+    PartialEq,
 )]
 #[diesel(table_name = channel)]
 pub struct Channel {
@@ -24,7 +44,9 @@ pub struct Channel {
     pub verified: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, ToSchema)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, ToSchema, Eq, PartialEq,
+)]
 #[diesel(primary_key(account_id, channel_id))]
 #[diesel(belongs_to(User))]
 #[diesel(belongs_to(Channel))]
@@ -35,7 +57,17 @@ pub struct Subscription {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, AsChangeset, ToSchema,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    Queryable,
+    Selectable,
+    Insertable,
+    AsChangeset,
+    ToSchema,
+    Eq,
+    PartialEq,
 )]
 #[diesel(belongs_to(User))]
 #[diesel(table_name = playlist)]
@@ -48,7 +80,17 @@ pub struct Playlist {
 }
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, AsChangeset, ToSchema,
+    Debug,
+    Clone,
+    Serialize,
+    Deserialize,
+    Queryable,
+    Selectable,
+    Insertable,
+    AsChangeset,
+    ToSchema,
+    Eq,
+    PartialEq,
 )]
 #[diesel(belongs_to(Channel, foreign_key = uploader_id))]
 #[diesel(table_name = video)]
@@ -63,7 +105,9 @@ pub struct Video {
     pub duration: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, ToSchema)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, ToSchema, Eq, PartialEq,
+)]
 #[diesel(primary_key(playlist_id, video_id))]
 #[diesel(belongs_to(Playlist))]
 #[diesel(belongs_to(Video))]

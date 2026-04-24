@@ -22,6 +22,8 @@ mod dto;
 mod handlers;
 mod models;
 mod schema;
+mod validation;
+mod youtube;
 
 static SECRET_KEY: LazyLock<String> = LazyLock::new(|| {
     env::var("SECRET_KEY").expect("Please set the `SECRET_KEY` env variable to a random value!")

@@ -47,6 +47,7 @@ pub struct PlaylistResponse {
 pub struct CreateVideo {
     pub id: String,
     pub title: String,
+    /// Upload date as UNIX timestamp (millis).
     pub upload_date: i64,
     pub uploader: Channel,
     pub thumbnail_url: String,
@@ -61,6 +62,18 @@ impl From<(&Video, &Channel)> for CreateVideo {
             thumbnail_url: video.thumbnail_url.clone(),
             duration: video.duration,
             uploader: channel.clone(),
+        }
+    }
+}
+impl Into<Video> for &CreateVideo {
+    fn into(self) -> Video {
+        Video {
+            id: self.id.clone(),
+            title: self.title.clone(),
+            upload_date: self.upload_date,
+            uploader_id: self.uploader.id.clone(),
+            thumbnail_url: self.thumbnail_url.clone(),
+            duration: self.duration,
         }
     }
 }

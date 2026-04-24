@@ -16,7 +16,8 @@ use crate::{
     dto::{CreatePlaylist, CreateVideo, PlaylistResponse},
     get_db_conn,
     handlers::{ScopedHandler, get_account, user::auth_middleware},
-    models::{Playlist, Video},
+    models::Playlist,
+    validation::validate_video_information_if_changed,
 };
 
 pub struct PlaylistsHandler {}
@@ -177,21 +178,15 @@ async fn add_to_playlist(
         return Err(error::ErrorForbidden("not the owner of the playlist"));
     }
 
+    let mut video_data = video_data.into_inner();
+    validate_video_information_if_changed(&mut conn, &mut video_data).await?;
+
     // store channel information first before storing video to ensure data integrity
     create_or_update_channel(&mut conn, &video_data.uploader)
         .await
         .map_err(error::ErrorInternalServerError)?;
 
-    let video = Video {
-        id: video_data.id.clone(),
-        title: video_data.title.clone(),
-        upload_date: video_data.upload_date,
-        uploader_id: video_data.uploader.id.clone(),
-        thumbnail_url: video_data.thumbnail_url.clone(),
-        duration: video_data.duration,
-    };
-
-    match add_video_to_playlist(&mut conn, &playlist_id, &video).await {
+    match add_video_to_playlist(&mut conn, &playlist_id, &(&video_data).into()).await {
         Ok(()) => Ok(HttpResponse::Created()),
         Err(err) => Err(error::ErrorInternalServerError(err)),
     }

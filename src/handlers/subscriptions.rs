@@ -11,6 +11,7 @@ use crate::{
     get_db_conn,
     handlers::{ScopedHandler, get_account, user::auth_middleware},
     models::Channel,
+    validation::validate_channel_information_if_changed,
 };
 
 pub struct SubscriptionsHandler {}
@@ -54,6 +55,9 @@ async fn subscribe(
 ) -> actix_web::Result<impl Responder> {
     let account = get_account(&req);
     let mut conn = get_db_conn!(pool);
+
+    // verify that the provided information is valid
+    validate_channel_information_if_changed(&mut conn, &channel).await?;
 
     match add_subscription_by_account_id(&mut conn, &channel, &account.id).await {
         Ok(_) => Ok(HttpResponse::Ok()),
