@@ -25,8 +25,19 @@ mod schema;
 mod validation;
 mod youtube;
 
+// TODO: proper config handling / parsing
 static SECRET_KEY: LazyLock<String> = LazyLock::new(|| {
     env::var("SECRET_KEY").expect("Please set the `SECRET_KEY` env variable to a random value!")
+});
+
+static REGISTRATION_ENABLED: LazyLock<bool> = LazyLock::new(|| {
+    let enabled = env::var("REGISTRATON_ENABLED").unwrap_or("true".to_string());
+    ["true", "yes", "1"].contains(&enabled.as_str())
+});
+
+static VALIDATION_ENABLED: LazyLock<bool> = LazyLock::new(|| {
+    let enabled = env::var("VALIDATION_ENABLED").unwrap_or("true".to_string());
+    ["true", "yes", "1"].contains(&enabled.as_str())
 });
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations/");

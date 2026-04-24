@@ -9,6 +9,8 @@ services:
     environment:
       - "DATABASE_URL=postgres://postgres:password@db/libretube-sync"
       - "SECRET_KEY=changeme"
+      - "REGISTRATION_ENABLED=true"
+      - "VALIDATION_ENABLED=true" # validate all user provided data by checking it against YouTube's RSS feeds
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

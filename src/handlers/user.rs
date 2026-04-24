@@ -12,7 +12,7 @@ use crate::database::account::{
 };
 use crate::dto::LoginResponse;
 use crate::handlers::{ScopedHandler, get_account};
-use crate::{SECRET_KEY, WebData, dto, get_db_conn, models};
+use crate::{REGISTRATION_ENABLED, SECRET_KEY, WebData, dto, get_db_conn, models};
 
 const AUTH_HEADER_KEY: &str = "Authorization";
 
@@ -45,6 +45,12 @@ async fn register_account(
     pool: WebData,
     form: web::Json<dto::RegisterUser>,
 ) -> actix_web::Result<impl Responder> {
+    if !*REGISTRATION_ENABLED {
+        return Err(error::ErrorMethodNotAllowed(
+            "registration is disabled on this server",
+        ));
+    }
+
     let mut conn = get_db_conn!(pool);
 
     let password_length = form.password.len();

@@ -5,7 +5,7 @@ use std::str::FromStr;
 use actix_web::{error, http::Uri};
 
 use crate::{
-    DbConnection,
+    DbConnection, VALIDATION_ENABLED,
     database::{channel::get_channel_by_id, video::get_video_by_id},
     dto::CreateVideo,
     models::{Channel, Video},
@@ -38,6 +38,10 @@ pub async fn validate_channel_information_if_changed(
     conn: &mut DbConnection,
     channel: &Channel,
 ) -> actix_web::Result<()> {
+    if !*VALIDATION_ENABLED {
+        return Ok(());
+    }
+
     // verification is only required if the channel doesn't exist yet or has changed since then
     if let Some(existing_channel) = get_channel_by_id(conn, &channel.id).await.ok().flatten()
         && *channel == existing_channel
@@ -75,6 +79,10 @@ pub async fn validate_video_information_if_changed(
     conn: &mut DbConnection,
     video_data: &mut CreateVideo,
 ) -> actix_web::Result<()> {
+    if !*VALIDATION_ENABLED {
+        return Ok(());
+    }
+
     // TODO: don't fetch same channel info twice!
     validate_channel_information_if_changed(conn, &video_data.uploader).await?;
 
