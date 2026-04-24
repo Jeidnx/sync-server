@@ -58,14 +58,14 @@ pub async fn validate_channel_information_if_changed(
 
 async fn validate_channel_information(channel: &Channel) -> Result<(), String> {
     if !verify_image_url(&channel.avatar) {
-        return Err("invalid channel information provided".to_string());
+        return Err("invalid channel avatar provided".to_string());
     }
 
     let channel_info = ChannelFetcher::get_channel_rss(&channel.id)
         .await
         .map_err(|err| err.to_string())?;
 
-    if channel_info
+    if !channel_info
         .name
         .trim()
         .eq_ignore_ascii_case(channel.name.trim())
