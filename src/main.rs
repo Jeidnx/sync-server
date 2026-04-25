@@ -77,7 +77,6 @@ async fn main() -> io::Result<()> {
             .into_utoipa_app()
             // add DB pool handle to app data; enables use of `web::Data<DbPool>` extractor
             .app_data(web::Data::new(pool.clone()))
-            .service(HealthHandler::get_service())
             .service(UserHandler::get_service())
             .service(SubscriptionsHandler::get_service())
             .service(PlaylistsHandler::get_service())
@@ -95,7 +94,9 @@ async fn main() -> io::Result<()> {
         );
         api.info.contact = None;
 
+        // docs service must be registered before health handler!
         app.service(Scalar::with_url("/docs", api))
+            .service(HealthHandler::get_service())
             .wrap(middleware::Logger::default())
     })
     .bind(("0.0.0.0", 8080))?
