@@ -5,7 +5,7 @@ use itertools::Itertools;
 use utoipa_actix_web::scope;
 
 use crate::{
-    WebData,
+    DbConnection, WebData,
     database::{
         channel::create_or_update_channel,
         playlist::{
@@ -106,6 +106,24 @@ async fn create_playlist(
     }
 }
 
+/// Get the playlist if it exists. Only succeeds if the user is the owner of the playlist, i.e. `account_id` matches.
+async fn get_owned_playlist_or_error(
+    conn: &mut DbConnection,
+    playlist_id: &str,
+    account_id: &str,
+) -> actix_web::Result<Playlist> {
+    let playlist = get_playlist_by_id(conn, playlist_id)
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+
+    let playlist = playlist.ok_or_else(|| error::ErrorNotFound("playlist doesn't exist"))?;
+    if playlist.account_id != account_id {
+        return Err(error::ErrorForbidden("not the owner of the playlist"));
+    }
+
+    Ok(playlist)
+}
+
 #[utoipa::path(responses((status = OK, body = Playlist)))]
 #[patch("/{playlist_id}")]
 async fn update_playlist(
@@ -117,12 +135,7 @@ async fn update_playlist(
     let mut conn = get_db_conn!(pool);
     let account = get_account(&req);
 
-    let playlist = get_playlist_by_id(&mut conn, &playlist_id)
-        .await
-        .map_err(error::ErrorInternalServerError)?;
-    if playlist.account_id != account.id {
-        return Err(error::ErrorForbidden("not the owner of the playlist"));
-    }
+    get_owned_playlist_or_error(&mut conn, &playlist_id, &account.id).await;
 
     let playlist = Playlist {
         id: playlist_id.clone(),
@@ -148,12 +161,7 @@ async fn delete_playlist(
     let mut conn = get_db_conn!(pool);
     let account = get_account(&req);
 
-    let playlist = get_playlist_by_id(&mut conn, &playlist_id)
-        .await
-        .map_err(error::ErrorInternalServerError)?;
-    if playlist.account_id != account.id {
-        return Err(error::ErrorForbidden("not the owner of the playlist"));
-    }
+    get_owned_playlist_or_error(&mut conn, &playlist_id, &account.id).await;
 
     match delete_playlist_by_id(&mut conn, &playlist_id).await {
         Ok(()) => Ok(HttpResponse::Ok().json(())),
@@ -172,12 +180,7 @@ async fn add_to_playlist(
     let mut conn = get_db_conn!(pool);
     let account_id = get_account(&req).id;
 
-    let playlist = get_playlist_by_id(&mut conn, &playlist_id)
-        .await
-        .map_err(error::ErrorInternalServerError)?;
-    if playlist.account_id != account_id {
-        return Err(error::ErrorForbidden("not the owner of the playlist"));
-    }
+    get_owned_playlist_or_error(&mut conn, &playlist_id, &account_id).await;
 
     let video_datas = video_datas.into_inner();
     let videos_grouped_by_uploader = video_datas
@@ -217,12 +220,7 @@ async fn remove_from_playlist(
 
     let (playlist_id, video_id) = path.into_inner();
 
-    let playlist = get_playlist_by_id(&mut conn, &playlist_id)
-        .await
-        .map_err(error::ErrorInternalServerError)?;
-    if playlist.account_id != account_id {
-        return Err(error::ErrorForbidden("not the owner of the playlist"));
-    }
+    get_owned_playlist_or_error(&mut conn, &playlist_id, &account_id).await?;
 
     match remove_video_from_playlist(&mut conn, &playlist_id, &video_id).await {
         Ok(()) => Ok(HttpResponse::Ok()),

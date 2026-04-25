@@ -1,4 +1,6 @@
-use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, SelectableHelper};
+use diesel::{
+    BoolExpressionMethods, ExpressionMethods, OptionalExtension, QueryDsl, SelectableHelper,
+};
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
@@ -96,11 +98,12 @@ pub async fn remove_video_from_playlist(
 pub async fn get_playlist_by_id(
     conn: &mut DbConnection,
     playlist_id_: &str,
-) -> Result<Playlist, DbError> {
+) -> Result<Option<Playlist>, DbError> {
     let playlist_ = playlist
         .filter(id.eq(playlist_id_.to_string()))
         .first(conn)
-        .await?;
+        .await
+        .optional()?;
 
     Ok(playlist_)
 }
