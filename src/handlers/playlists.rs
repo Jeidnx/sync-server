@@ -1,6 +1,7 @@
 use actix_web::{
     HttpRequest, HttpResponse, Responder, delete, error, get, middleware::from_fn, patch, post, web,
 };
+use itertools::Itertools;
 use utoipa_actix_web::scope;
 
 use crate::{
@@ -166,7 +167,7 @@ async fn add_to_playlist(
     req: HttpRequest,
     pool: WebData,
     playlist_id: web::Path<String>,
-    video_data: web::Json<CreateVideo>,
+    video_datas: web::Json<Vec<CreateVideo>>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
     let account_id = get_account(&req).id;
@@ -178,18 +179,30 @@ async fn add_to_playlist(
         return Err(error::ErrorForbidden("not the owner of the playlist"));
     }
 
-    let mut video_data = video_data.into_inner();
-    validate_video_information_if_changed(&mut conn, &mut video_data).await?;
+    let video_datas = video_datas.into_inner();
+    let videos_grouped_by_uploader = video_datas
+        .iter()
+        .sorted_by(|a, b| Ord::cmp(&a.uploader.id, &b.uploader.id))
+        .chunk_by(|video| video.uploader.clone());
 
-    // store channel information first before storing video to ensure data integrity
-    create_or_update_channel(&mut conn, &video_data.uploader)
-        .await
-        .map_err(error::ErrorInternalServerError)?;
+    for (channel, videos) in &videos_grouped_by_uploader {
+        let mut videos: Vec<_> = videos.cloned().collect();
 
-    match add_video_to_playlist(&mut conn, &playlist_id, &(&video_data).into()).await {
-        Ok(()) => Ok(HttpResponse::Created()),
-        Err(err) => Err(error::ErrorInternalServerError(err)),
+        validate_video_information_if_changed(&mut conn, &mut videos).await?;
+
+        // store channel information first before storing video to ensure data integrity
+        create_or_update_channel(&mut conn, &channel)
+            .await
+            .map_err(error::ErrorInternalServerError)?;
+
+        for video in videos {
+            add_video_to_playlist(&mut conn, &playlist_id, &(&video).into())
+                .await
+                .map_err(error::ErrorInternalServerError)?;
+        }
     }
+
+    Ok(HttpResponse::Created())
 }
 
 #[utoipa::path(responses((status = OK)))]

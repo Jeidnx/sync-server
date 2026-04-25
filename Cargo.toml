@@ -45,6 +45,9 @@ chrono = "0.4"
 reqwest = "0.13"
 roxmltree = "0.21"
 
+# Helper methods
+itertools = "0.14"
+
 [features]
 default = ["sqlite"]
 # default = ["postgres"]

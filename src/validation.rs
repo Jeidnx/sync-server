@@ -1,6 +1,6 @@
 //! Validates user-provided data to be valid (to some extent, as it only has limited info due to using YouTube's RSS feeds)
 
-use std::str::FromStr;
+use std::{collections::HashSet, str::FromStr};
 
 use actix_web::{error, http::Uri};
 
@@ -9,7 +9,7 @@ use crate::{
     database::{channel::get_channel_by_id, video::get_video_by_id},
     dto::CreateVideo,
     models::{Channel, Video},
-    youtube::channel::ChannelFetcher,
+    youtube::channel::{ChannelFetcher, ChannelRss},
 };
 
 const ALLOWED_THUMBNAIL_DOMAINS: [&str; 4] =
@@ -37,26 +37,30 @@ fn verify_image_url(image_url: &str) -> bool {
 pub async fn validate_channel_information_if_changed(
     conn: &mut DbConnection,
     channel: &Channel,
-) -> actix_web::Result<()> {
+) -> actix_web::Result<Option<ChannelRss>> {
     if !*VALIDATION_ENABLED {
-        return Ok(());
+        return Ok(None);
     }
 
     // verification is only required if the channel doesn't exist yet or has changed since then
     if let Some(existing_channel) = get_channel_by_id(conn, &channel.id).await.ok().flatten()
         && *channel == existing_channel
     {
-        return Ok(());
+        return Ok(None);
     }
 
     validate_channel_information(channel)
         .await
-        .map_err(error::ErrorBadRequest)?;
-
-    Ok(())
+        .map_err(error::ErrorBadRequest)
 }
 
-async fn validate_channel_information(channel: &Channel) -> Result<(), String> {
+/// Validate if the provided channel information is valid.
+/// If yes, the method returns an `Ok` result. If not, the method returns an `Err`.
+///
+/// The return value inside the `Option<ChannelRss>` doesn't say anything about
+/// whether the verification was succesfull, it's only returned in case the caller
+/// wants to re-use the RSS feed info.
+async fn validate_channel_information(channel: &Channel) -> Result<Option<ChannelRss>, String> {
     if !verify_image_url(&channel.avatar) {
         return Err("invalid channel avatar provided".to_string());
     }
@@ -73,48 +77,73 @@ async fn validate_channel_information(channel: &Channel) -> Result<(), String> {
         return Err("invalid channel information provided".to_string());
     }
 
-    Ok(())
+    Ok(Some(channel_info))
 }
+
+/// Requirement: all videos must be from the same channel!
 pub async fn validate_video_information_if_changed(
     conn: &mut DbConnection,
-    video_data: &mut CreateVideo,
+    video_datas: &mut [CreateVideo],
 ) -> actix_web::Result<()> {
     if !*VALIDATION_ENABLED {
         return Ok(());
     }
 
-    // TODO: don't fetch same channel info twice!
-    validate_channel_information_if_changed(conn, &video_data.uploader).await?;
-
-    // verification is only required if the channel doesn't exist yet or has changed since then
-    if let Some(existing_video) = get_video_by_id(conn, &video_data.id).await.ok().flatten()
-        && std::convert::Into::<Video>::into(&*video_data) == existing_video
-    {
-        return Ok(());
+    let channel = video_datas
+        .iter()
+        .map(|video_data| video_data.uploader.clone())
+        .collect::<HashSet<Channel>>();
+    if channel.len() != 1 {
+        return Err(error::ErrorInternalServerError(
+            "can only process videos from the same channel",
+        ));
     }
+    let channel = channel.iter().next().unwrap();
 
-    validate_video_information(video_data)
-        .await
-        .map_err(error::ErrorBadRequest)?;
+    let channel_rss = validate_channel_information_if_changed(conn, channel).await?;
+    let channel_rss = match channel_rss {
+        Some(channel_rss) => channel_rss,
+        None => {
+            // RSS not loaded yet, so we have to load it now
+            ChannelFetcher::get_channel_rss(&channel.id)
+                .await
+                .map_err(|err| error::ErrorInternalServerError(err.to_string()))?
+        }
+    };
+
+    for video_data in video_datas.iter_mut() {
+        // verification is only required if the channel doesn't exist yet or has changed since then
+        if let Some(existing_video) = get_video_by_id(conn, &video_data.id).await.ok().flatten()
+            && std::convert::Into::<Video>::into(&*video_data) == existing_video
+        {
+            continue;
+        }
+
+        (*video_data) = validate_video_information(video_data.clone(), &channel_rss)
+            .map_err(error::ErrorBadRequest)?;
+    }
 
     Err(error::ErrorBadRequest("video doesn't exist"))
 }
 
-async fn validate_video_information(video_data: &mut CreateVideo) -> Result<(), String> {
+/// Validates the video exists and returns updated meta information from the RSS feed.
+///
+/// You should use the resulting [CreateVideo] for doing any further actions with the video,
+/// because its metadata is more accurate.
+fn validate_video_information(
+    video_data: CreateVideo,
+    channel_rss: &ChannelRss,
+) -> Result<CreateVideo, String> {
     // validate thumbnail URL
     if !verify_image_url(&video_data.thumbnail_url) {
         return Err("invalid channel information provided".to_string());
     }
 
-    let channel_info = ChannelFetcher::get_channel_rss(&video_data.uploader.id)
-        .await
-        .map_err(|err| err.to_string())?;
-
     // RSS feed doesn't contain videos, so we can't validate anything
-    if channel_info.videos.is_empty() {
-        return Ok(());
+    if channel_rss.videos.is_empty() {
+        return Ok(video_data);
     }
-    let oldest_date = channel_info
+    let oldest_date = channel_rss
         .videos
         .last()
         .map(|vid| vid.published_date)
@@ -122,22 +151,23 @@ async fn validate_video_information(video_data: &mut CreateVideo) -> Result<(), 
 
     // Video is older than the videos in the feed
     if oldest_date.timestamp_millis() > video_data.upload_date {
-        return Ok(());
+        return Ok(video_data);
     }
 
     // look if video exists in RSS feed
-    for video_rss in channel_info.videos {
+    for video_rss in &channel_rss.videos {
         if video_rss.id == video_data.id {
             // update video information to the one from the RSS feed
-            video_data.title = video_rss.title;
+            let mut video_data = video_data;
+            video_data.title = video_rss.title.clone();
             video_data.upload_date = video_rss.published_date.timestamp_millis();
-            video_data.thumbnail_url = video_rss.thumbnail;
+            video_data.thumbnail_url = video_rss.thumbnail.clone();
 
-            return Ok(());
+            return Ok(video_data);
         }
     }
 
-    Ok(())
+    Ok(video_data)
 }
 
 #[cfg(test)]

@@ -35,6 +35,7 @@ pub struct Account {
     ToSchema,
     Eq,
     PartialEq,
+    Hash,
 )]
 #[diesel(table_name = channel)]
 pub struct Channel {
