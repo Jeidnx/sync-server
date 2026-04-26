@@ -178,8 +178,10 @@ fn validate_video_information(
 #[cfg(test)]
 mod test {
     use crate::{
+        dto::CreateVideo,
         models::Channel,
-        validation::{validate_channel_information, verify_image_url},
+        validation::{validate_channel_information, validate_video_information, verify_image_url},
+        youtube::channel::ChannelFetcher,
     };
 
     #[test]
@@ -229,5 +231,28 @@ mod test {
             .await
             .is_err()
         );
+    }
+
+    #[actix_rt::test]
+    async fn test_video_validator() {
+        // This is probably
+        let video = CreateVideo {
+            id: "kMO1L5J1cn8".to_string(),
+            title: "Minecraft Livestream [FaceCam] | Kotti".to_string(),
+            upload_date: 1549036231000, /* 2019-02-01T16:50:31+00:00 */
+            thumbnail_url: "https://i4.ytimg.com/vi/kMO1L5J1cn8/hqdefault.jpg".to_string(),
+            duration: 4352,
+            uploader: Channel {
+                id: "UCWnQYRWgTbsLTDOAVc3uzRg".to_string(),
+                name: "KottiXD".to_string(),
+                avatar: "https://yt3.googleusercontent.com/ytc/AIdro_lBXTw2HqumabqUMrMcWlB5BVUa-bDCP1YQ0Jwf89C6RMY=s160-c-k-c0x00ffffff-no-rj".to_string(),
+                verified: false,
+            },
+        };
+
+        let channel_rss = ChannelFetcher::get_channel_rss(&video.uploader.id)
+            .await
+            .unwrap();
+        assert!(validate_video_information(video, &channel_rss).is_ok());
     }
 }
