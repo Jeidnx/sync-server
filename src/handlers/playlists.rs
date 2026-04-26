@@ -116,7 +116,10 @@ async fn create_playlist(
     };
 
     match create_new_playlist(&mut conn, &playlist).await {
-        Ok(playlist) => Ok(HttpResponse::Created().json(playlist)),
+        Ok(playlist) => {
+            let extended_playlist = ExtendedPlaylist::from_playlist(&playlist, 0);
+            Ok(HttpResponse::Created().json(extended_playlist))
+        }
         Err(err) => Err(error::ErrorInternalServerError(err)),
     }
 }
@@ -161,7 +164,13 @@ async fn update_playlist(
     };
 
     match update_existing_playlist(&mut conn, &playlist).await {
-        Ok(playlist) => Ok(HttpResponse::Ok().json(playlist)),
+        Ok(playlist) => {
+            let video_count = get_playlist_video_count(&mut conn, &playlist.id)
+                .await
+                .unwrap_or(-1);
+            let extended_playlist = ExtendedPlaylist::from_playlist(&playlist, video_count as u64);
+            Ok(HttpResponse::Ok().json(extended_playlist))
+        }
         Err(err) => Err(error::ErrorInternalServerError(err)),
     }
 }
