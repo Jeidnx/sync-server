@@ -20,6 +20,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=${TARGETPLATFORM}-${D
 FROM alpine:latest AS runner
 WORKDIR /app
 
+# required for connecting to YouTube for input data validation
+RUN apk add ca-certificates
+
 COPY --from=builder /build-dir/libretube-sync /app/libretube-sync-server
 
 EXPOSE 8080
