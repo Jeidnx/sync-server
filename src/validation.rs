@@ -12,8 +12,13 @@ use crate::{
     youtube::channel::{ChannelFetcher, ChannelRss},
 };
 
-const ALLOWED_THUMBNAIL_DOMAINS: [&str; 4] =
-    ["youtube.com", "googlevideo.com", "ytimg.com", "ggpht.com"];
+const ALLOWED_THUMBNAIL_DOMAINS: [&str; 5] = [
+    "youtube.com",
+    "googlevideo.com",
+    "ytimg.com",
+    "ggpht.com",
+    "googleusercontent.com",
+];
 
 fn verify_image_url(image_url: &str) -> bool {
     // TODO: don't rely on Actix for this, bad separation of concerns
@@ -123,7 +128,7 @@ pub async fn validate_video_information_if_changed(
             .map_err(error::ErrorBadRequest)?;
     }
 
-    Err(error::ErrorBadRequest("video doesn't exist"))
+    Ok(())
 }
 
 /// Validates the video exists and returns updated meta information from the RSS feed.
