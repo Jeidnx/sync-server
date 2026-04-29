@@ -43,7 +43,7 @@ pub async fn validate_channel_information_if_changed(
     conn: &mut DbConnection,
     channel: &Channel,
 ) -> actix_web::Result<Option<ChannelRss>> {
-    if !CONFIG.validate {
+    if !CONFIG.validate_submitted_metadata {
         return Ok(None);
     }
 
@@ -90,7 +90,7 @@ pub async fn validate_video_information_if_changed(
     conn: &mut DbConnection,
     video_datas: &mut [CreateVideo],
 ) -> actix_web::Result<()> {
-    if !CONFIG.validate {
+    if !CONFIG.validate_submitted_metadata {
         return Ok(());
     }
 
