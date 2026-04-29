@@ -5,7 +5,7 @@ use std::{collections::HashSet, str::FromStr};
 use actix_web::{error, http::Uri};
 
 use crate::{
-    DbConnection, VALIDATION_ENABLED,
+    CONFIG, DbConnection,
     database::{channel::get_channel_by_id, video::get_video_by_id},
     dto::CreateVideo,
     models::{Channel, Video},
@@ -43,7 +43,7 @@ pub async fn validate_channel_information_if_changed(
     conn: &mut DbConnection,
     channel: &Channel,
 ) -> actix_web::Result<Option<ChannelRss>> {
-    if !*VALIDATION_ENABLED {
+    if !CONFIG.validate {
         return Ok(None);
     }
 
@@ -90,7 +90,7 @@ pub async fn validate_video_information_if_changed(
     conn: &mut DbConnection,
     video_datas: &mut [CreateVideo],
 ) -> actix_web::Result<()> {
-    if !*VALIDATION_ENABLED {
+    if !CONFIG.validate {
         return Ok(());
     }
 

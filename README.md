@@ -12,6 +12,27 @@ For reference, please see the example `docker-compose` files at [docker-compose.
 
 After you chose the correct `docker-compose.yml` for your use case, just run `docker compose up`.
 
+### Configuration
+
+There are two ways to configure `sync-server`
+
+- TOML file
+
+  If you want to use TOML, just place a `config.toml` in the working directory of the server.
+
+- Environment variables
+
+  The configuration can also be done through environment variables. Casing doesn't matter here.
+
+### Configuration Reference:
+
+| Config option                   | Description                                          | Default | Example              |
+| ----------------------          | ---------------------------------------------------- | ------- | -------------------- |
+| `database_url`                  | Connection string for the database                   | None    | sqlite://./db.sql    |
+| `secret_key`                    | Used to sign authentication tokens                   | None    | SomeVeryLongString64 |
+| `allow_registration`            | Whether to allow registering on this server          | `true`  | `false`              |
+| `validate_submitted_metadata`   | Whether to check incoming video data against YouTube | `true`  | `false`              |
+
 ## API Documentation
 - Start the app, e.g. with `cargo run`.
 - The documentation can now be found at `http://localhost:8080/docs`.

@@ -6,7 +6,7 @@ use std::{env, io, sync::LazyLock};
 use actix_web::{App, HttpServer, middleware, web};
 use diesel_async::pooled_connection::{AsyncDieselConnectionManager, PoolError, bb8::Pool};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-use dotenvor::dotenv;
+use log::error;
 use utoipa::openapi::LicenseBuilder;
 use utoipa_actix_web::AppExt;
 use utoipa_scalar::{Scalar, Servable};
@@ -17,6 +17,7 @@ use crate::handlers::{
 };
 
 mod auth;
+mod config;
 mod database;
 mod dto;
 mod handlers;
@@ -25,19 +26,12 @@ mod schema;
 mod validation;
 mod youtube;
 
-// TODO: proper config handling / parsing
-static SECRET_KEY: LazyLock<String> = LazyLock::new(|| {
-    env::var("SECRET_KEY").expect("Please set the `SECRET_KEY` env variable to a random value!")
-});
-
-static REGISTRATION_ENABLED: LazyLock<bool> = LazyLock::new(|| {
-    let enabled = env::var("REGISTRATON_ENABLED").unwrap_or("true".to_string());
-    ["true", "yes", "1"].contains(&enabled.as_str())
-});
-
-static VALIDATION_ENABLED: LazyLock<bool> = LazyLock::new(|| {
-    let enabled = env::var("VALIDATION_ENABLED").unwrap_or("true".to_string());
-    ["true", "yes", "1"].contains(&enabled.as_str())
+static CONFIG: LazyLock<config::Config> = LazyLock::new(|| match config::build_config() {
+    Ok(c) => c,
+    Err(e) => {
+        error!("Failed to configure server: {e}");
+        std::process::exit(1);
+    }
 });
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations/");
@@ -56,13 +50,10 @@ type WebData = web::Data<DbPool>;
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
-    // load env from .env file
-    unsafe { dotenv() }.ok();
-
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     // initialize DB pool outside `HttpServer::new` so that it is shared across all workers
-    let pool = match initialize_db_pool().await {
+    let pool = match initialize_db_pool(&CONFIG.database_url).await {
         Ok(pool) => pool,
         Err(err) => panic!("{}", err),
     };
@@ -107,9 +98,7 @@ async fn main() -> io::Result<()> {
 /// Initialize database connection pool based on `DATABASE_URL` environment variable.
 ///
 /// See more: <https://docs.rs/diesel-async/latest/diesel_async/pooled_connection/index.html#modules>.
-async fn initialize_db_pool() -> Result<DbPool, PoolError> {
-    let db_url = env::var("DATABASE_URL").expect("Env var `DATABASE_URL` not set");
-
+async fn initialize_db_pool(db_url: &str) -> Result<DbPool, PoolError> {
     let connection_manager = AsyncDieselConnectionManager::<DbConnection>::new(db_url);
     Pool::builder().build(connection_manager).await
 }

@@ -26,7 +26,6 @@ diesel_migrations = { version = "2.3" }
 uuid = { version = "1", features = ["serde", "v7"] }
 
 # Logging
-dotenvor = "0.2.0"
 env_logger = "0.11.10"
 log = "0.4"
 
@@ -45,7 +44,8 @@ chrono = "0.4"
 reqwest = "0.13"
 roxmltree = "0.21"
 
-# Helper methods
+# Helper crates
+config = { version = "0.15.22", default-features = false, features = ["convert-case", "toml"] }
 itertools = "0.14"
 
 [features]

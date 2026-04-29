@@ -9,8 +9,11 @@ services:
     environment:
       - "DATABASE_URL=postgres://postgres:password@db/libretube-sync"
       - "SECRET_KEY=changeme"
-      - "REGISTRATION_ENABLED=true"
-      - "VALIDATION_ENABLED=true" # validate all user provided data by checking it against YouTube's RSS feeds
+      - "ALLOW_REGISTRATION=true"
+      - "VALIDATE_SUBMITTED_METADATA=true"
+    # Or use a configuration file:
+    # volumes:
+    #   - ./config.toml:/app/config.toml
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

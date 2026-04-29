@@ -12,7 +12,7 @@ use crate::database::account::{
 };
 use crate::dto::LoginResponse;
 use crate::handlers::{ScopedHandler, get_account};
-use crate::{REGISTRATION_ENABLED, SECRET_KEY, WebData, dto, get_db_conn, models};
+use crate::{CONFIG, WebData, dto, get_db_conn, models};
 
 const AUTH_HEADER_KEY: &str = "Authorization";
 
@@ -45,7 +45,7 @@ async fn register_account(
     pool: WebData,
     form: web::Json<dto::RegisterUser>,
 ) -> actix_web::Result<impl Responder> {
-    if !*REGISTRATION_ENABLED {
+    if !CONFIG.allow_registration {
         return Err(error::ErrorMethodNotAllowed(
             "registration is disabled on this server",
         ));
@@ -60,7 +60,7 @@ async fn register_account(
 
     let account = models::Account {
         id: Uuid::now_v7().to_string(),
-        name_hash: hash_accountname(&form.name, SECRET_KEY.as_bytes()),
+        name_hash: hash_accountname(&form.name, CONFIG.secret.as_bytes()),
         password_hash: hash_password(&form.password),
     };
 
@@ -73,7 +73,7 @@ async fn register_account(
             _ => error::ErrorInternalServerError(err),
         })?;
 
-    match generate_jwt(&account, SECRET_KEY.as_bytes()) {
+    match generate_jwt(&account, CONFIG.secret.as_bytes()) {
         Ok(jwt) => {
             let resp = LoginResponse { jwt };
             Ok(HttpResponse::Created().json(resp))
@@ -90,7 +90,7 @@ async fn login_account(
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
 
-    let name = hash_accountname(&form.name, SECRET_KEY.as_bytes());
+    let name = hash_accountname(&form.name, CONFIG.secret.as_bytes());
     let Some(account) = find_account_by_name_hash(&mut conn, &name)
         .await
         .ok()
@@ -103,7 +103,7 @@ async fn login_account(
         return Err(error::ErrorForbidden("invalid accountname or password"));
     }
 
-    match generate_jwt(&account, SECRET_KEY.as_bytes()) {
+    match generate_jwt(&account, CONFIG.secret.as_bytes()) {
         Ok(jwt) => {
             let resp = LoginResponse { jwt };
             Ok(HttpResponse::Ok().json(resp))
@@ -149,7 +149,7 @@ pub async fn auth_middleware(
     let Some(jwt) = auth_cookie.or(auth_header) else {
         return Err(error::ErrorUnauthorized("missing authentication token"));
     };
-    let Ok(account_id) = verify_jwt(&jwt, SECRET_KEY.as_bytes()) else {
+    let Ok(account_id) = verify_jwt(&jwt, CONFIG.secret.as_bytes()) else {
         return Err(error::ErrorUnauthorized("invalid authentication token"));
     };
 
