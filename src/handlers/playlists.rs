@@ -1,5 +1,5 @@
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, delete, error, get, middleware::from_fn, patch, post, web,
+    HttpResponse, Responder, delete, error, get, middleware::from_fn, patch, post, web,
 };
 use itertools::Itertools;
 use utoipa_actix_web::scope;
@@ -16,8 +16,8 @@ use crate::{
     },
     dto::{CreatePlaylist, CreateVideo, ExtendedPlaylist, PlaylistResponse},
     get_db_conn,
-    handlers::{ScopedHandler, get_account, user::auth_middleware},
-    models::Playlist,
+    handlers::{ScopedHandler, user::auth_middleware},
+    models::{Account, Playlist},
     validation::validate_video_information_if_changed,
 };
 
@@ -47,12 +47,11 @@ impl ScopedHandler for PlaylistsHandler {
 #[utoipa::path(responses((status = OK, body = PlaylistResponse)))]
 #[get("/{playlist_id}")]
 async fn get_playlist(
+    account: Account,
     pool: WebData,
-    req: HttpRequest,
     playlist_id: web::Path<String>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
-    let account_id = get_account(&req).id;
 
     let Some((playlist, videos)) = get_playlist_by_id_with_videos(&mut conn, &playlist_id)
         .await
@@ -60,7 +59,7 @@ async fn get_playlist(
     else {
         return Err(error::ErrorNotFound("playlist does not exist"));
     };
-    if playlist.account_id != account_id {
+    if playlist.account_id != account.id {
         return Err(error::ErrorForbidden("not the owner of the playlist"));
     }
 
@@ -77,11 +76,10 @@ async fn get_playlist(
 
 #[utoipa::path(responses((status = OK, body = Vec<ExtendedPlaylist>)))]
 #[get("/")]
-async fn get_playlists(req: HttpRequest, pool: WebData) -> actix_web::Result<impl Responder> {
+async fn get_playlists(account: Account, pool: WebData) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
-    let account_id = get_account(&req).id;
 
-    let playlists = get_playlists_by_account_id(&mut conn, &account_id)
+    let playlists = get_playlists_by_account_id(&mut conn, &account.id)
         .await
         .map_err(error::ErrorInternalServerError)?;
 
@@ -100,12 +98,11 @@ async fn get_playlists(req: HttpRequest, pool: WebData) -> actix_web::Result<imp
 #[utoipa::path(responses((status = CREATED, body = Playlist)))]
 #[post("/")]
 async fn create_playlist(
-    req: HttpRequest,
+    account: Account,
     pool: WebData,
     playlist_data: web::Json<CreatePlaylist>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
-    let account = get_account(&req);
 
     let playlist = Playlist {
         id: String::new(),
@@ -145,13 +142,12 @@ async fn get_owned_playlist_or_error(
 #[utoipa::path(responses((status = OK, body = Playlist)))]
 #[patch("/{playlist_id}")]
 async fn update_playlist(
-    req: HttpRequest,
+    account: Account,
     pool: WebData,
     playlist_id: web::Path<String>,
     playlist_data: web::Json<CreatePlaylist>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
-    let account = get_account(&req);
 
     get_owned_playlist_or_error(&mut conn, &playlist_id, &account.id).await?;
 
@@ -178,12 +174,11 @@ async fn update_playlist(
 #[utoipa::path(responses((status = OK)))]
 #[delete("/{playlist_id}")]
 async fn delete_playlist(
-    req: HttpRequest,
+    account: Account,
     pool: WebData,
     playlist_id: web::Path<String>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
-    let account = get_account(&req);
 
     get_owned_playlist_or_error(&mut conn, &playlist_id, &account.id).await?;
 
@@ -196,15 +191,14 @@ async fn delete_playlist(
 #[utoipa::path(responses((status = CREATED)))]
 #[post("/{playlist_id}/videos")]
 async fn add_to_playlist(
-    req: HttpRequest,
+    account: Account,
     pool: WebData,
     playlist_id: web::Path<String>,
     video_datas: web::Json<Vec<CreateVideo>>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
-    let account_id = get_account(&req).id;
 
-    get_owned_playlist_or_error(&mut conn, &playlist_id, &account_id).await?;
+    get_owned_playlist_or_error(&mut conn, &playlist_id, &account.id).await?;
 
     let video_datas = video_datas.into_inner();
     let videos_grouped_by_uploader = video_datas
@@ -235,16 +229,15 @@ async fn add_to_playlist(
 #[utoipa::path(responses((status = OK)))]
 #[delete("/{playlist_id}/videos/{video_id}")]
 async fn remove_from_playlist(
-    req: HttpRequest,
+    account: Account,
     pool: WebData,
     path: web::Path<(String, String)>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
-    let account_id = get_account(&req).id;
 
     let (playlist_id, video_id) = path.into_inner();
 
-    get_owned_playlist_or_error(&mut conn, &playlist_id, &account_id).await?;
+    get_owned_playlist_or_error(&mut conn, &playlist_id, &account.id).await?;
 
     match remove_video_from_playlist(&mut conn, &playlist_id, &video_id).await {
         Ok(()) => Ok(HttpResponse::Ok()),

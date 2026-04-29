@@ -1,7 +1,7 @@
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceFactory, ServiceRequest, ServiceResponse};
 use actix_web::middleware::Next;
-use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, delete, error, post, web};
+use actix_web::{HttpMessage, HttpResponse, Responder, delete, error, post, web};
 use diesel::result::DatabaseErrorKind;
 use utoipa_actix_web::scope;
 use uuid::Uuid;
@@ -11,7 +11,8 @@ use crate::database::account::{
     delete_existing_account, find_account_by_id, find_account_by_name_hash, insert_new_account,
 };
 use crate::dto::LoginResponse;
-use crate::handlers::{ScopedHandler, get_account};
+use crate::handlers::ScopedHandler;
+use crate::models::Account;
 use crate::{CONFIG, WebData, dto, get_db_conn, models};
 
 const AUTH_HEADER_KEY: &str = "Authorization";
@@ -115,12 +116,11 @@ async fn login_account(
 #[utoipa::path(responses((status = OK)))]
 #[delete("/delete")]
 async fn delete_account(
-    req: HttpRequest,
+    account: Account,
     pool: WebData,
     form: web::Json<dto::DeleteUser>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
-    let account = get_account(&req);
 
     if !verify_password(&form.password, &account.password_hash) {
         return Err(error::ErrorForbidden("invalid accountname or password"));
