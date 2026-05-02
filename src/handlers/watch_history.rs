@@ -5,7 +5,7 @@ use utoipa_actix_web::scope;
 use crate::{
     WebData,
     database::watch_history::{
-        add_video_to_watch_history, get_watch_history_by_account_id,
+        add_video_to_watch_history, get_watch_history_by_account_id, get_watch_history_entry,
         remove_video_from_watch_history,
     },
     dto::{CreateVideo, ExtendedWatchHistoryItem},
@@ -31,6 +31,7 @@ impl ScopedHandler for WatchHistoryHandler {
             .service(get_watch_history)
             .service(add_to_watch_history)
             .service(remove_from_watch_history)
+            .service(get_from_watch_history)
     }
 }
 
@@ -77,6 +78,27 @@ async fn get_watch_history(
             Ok(HttpResponse::Ok().json(history))
         }
         Err(err) => Err(error::ErrorInternalServerError(err)),
+    }
+}
+
+#[utoipa::path(responses((status = OK, body = ExtendedWatchHistoryItem)), security(("api_jwt_token" = [])))]
+#[get("/{video_id}")]
+async fn get_from_watch_history(
+    account: Account,
+    pool: WebData,
+    video_id: web::Path<String>,
+) -> actix_web::Result<impl Responder> {
+    let mut conn = get_db_conn!(pool);
+
+    match get_watch_history_entry(&mut conn, &account.id, &video_id)
+        .await
+        .map_err(error::ErrorInternalServerError)?
+    {
+        Some((metadata, video, channel)) => Ok(HttpResponse::Ok().json(ExtendedWatchHistoryItem {
+            video: CreateVideo::from((&video, &channel)),
+            metadata: metadata.clone(),
+        })),
+        None => Err(error::ErrorNotFound("video not in watch history")),
     }
 }
 

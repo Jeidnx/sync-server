@@ -1,4 +1,6 @@
-use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, SelectableHelper};
+use diesel::{
+    BoolExpressionMethods, ExpressionMethods, OptionalExtension, QueryDsl, SelectableHelper,
+};
 use diesel_async::RunQueryDsl as _;
 
 use crate::{
@@ -19,7 +21,8 @@ pub async fn get_watch_history_by_account_id(
 ) -> Result<Vec<(WatchHistoryItem, Video, Channel)>, DbError> {
     // https://github.com/diesel-rs/diesel/issues/455
     let mut query = watch_history
-        .filter(account_id.eq(account_id_)).into_boxed();
+        .filter(account_id.eq(account_id_))
+        .into_boxed();
 
     if let Some(status) = &status {
         query = query.filter(watched_state.eq(status));
@@ -35,9 +38,31 @@ pub async fn get_watch_history_by_account_id(
         .offset(PAGE_SIZE * (page_num - 1) as i64)
         .limit(PAGE_SIZE)
         .inner_join(video::table.inner_join(channel::table))
-        .select((WatchHistoryItem::as_select(), Video::as_select(), Channel::as_select()))
+        .select((
+            WatchHistoryItem::as_select(),
+            Video::as_select(),
+            Channel::as_select(),
+        ))
         .load(conn)
         .await
+}
+
+pub async fn get_watch_history_entry(
+    conn: &mut DbConnection,
+    account_id_: &str,
+    video_id_: &str,
+) -> Result<Option<(WatchHistoryItem, Video, Channel)>, DbError> {
+    watch_history
+        .filter(account_id.eq(account_id_).and(video_id.eq(video_id_)))
+        .inner_join(video::table.inner_join(channel::table))
+        .select((
+            WatchHistoryItem::as_select(),
+            Video::as_select(),
+            Channel::as_select(),
+        ))
+        .first(conn)
+        .await
+        .optional()
 }
 
 pub async fn add_video_to_watch_history(
