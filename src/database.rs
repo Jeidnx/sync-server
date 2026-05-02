@@ -5,5 +5,6 @@ pub mod playlist_bookmark;
 pub mod public_playlist;
 pub mod subscription;
 pub mod video;
+pub mod watch_history;
 
 type DbError = diesel::result::Error;

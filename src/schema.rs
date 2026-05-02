@@ -70,6 +70,16 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    watch_history (video_id, account_id) {
+        video_id -> Text,
+        account_id -> Text,
+        added_date -> BigInt,
+        watched_state -> crate::models::WatchedStateMapping,
+        position_millis -> Nullable<Integer>,
+    }
+}
+
 diesel::joinable!(playlist -> account (account_id));
 diesel::joinable!(playlist_bookmark -> account (account_id));
 diesel::joinable!(playlist_bookmark -> public_playlist (public_playlist_id));
@@ -79,6 +89,8 @@ diesel::joinable!(public_playlist -> channel (uploader_id));
 diesel::joinable!(subscription -> account (account_id));
 diesel::joinable!(subscription -> channel (channel_id));
 diesel::joinable!(video -> channel (uploader_id));
+diesel::joinable!(watch_history -> account (account_id));
+diesel::joinable!(watch_history -> video (video_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     account,
@@ -89,4 +101,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     public_playlist,
     subscription,
     video,
+    watch_history,
 );

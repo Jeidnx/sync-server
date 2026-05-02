@@ -91,6 +91,18 @@ fn validate_channel_information(channel: &Channel, feed_rss: &FeedRss) -> Result
 }
 
 /// Requirement: all videos must be from the same channel!
+pub async fn validate_video_information_if_changed_single(
+    conn: &mut DbConnection,
+    video_data: &mut CreateVideo,
+) -> actix_web::Result<()> {
+    let mut video_datas = vec![video_data.clone()];
+    validate_video_information_if_changed(conn, &mut video_datas).await?;
+    (*video_data) = video_datas[0].clone();
+
+    Ok(())
+}
+
+/// Requirement: all videos must be from the same channel!
 pub async fn validate_video_information_if_changed(
     conn: &mut DbConnection,
     video_datas: &mut [CreateVideo],

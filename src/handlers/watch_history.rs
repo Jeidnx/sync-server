@@ -1,0 +1,125 @@
+use actix_web::{HttpResponse, Responder, delete, error, get, middleware::from_fn, put, web};
+use serde::Deserialize;
+use utoipa_actix_web::scope;
+
+use crate::{
+    WebData,
+    database::watch_history::{
+        add_video_to_watch_history, get_watch_history_by_account_id,
+        remove_video_from_watch_history,
+    },
+    dto::{CreateVideo, ExtendedWatchHistoryItem},
+    get_db_conn,
+    handlers::{ScopedHandler, user::auth_middleware},
+    models::{Account, WatchedState},
+    validation::validate_video_information_if_changed_single,
+};
+
+pub struct WatchHistoryHandler;
+impl ScopedHandler for WatchHistoryHandler {
+    fn get_service() -> utoipa_actix_web::scope::Scope<
+        impl actix_web::dev::ServiceFactory<
+            actix_web::dev::ServiceRequest,
+            Response = actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>,
+            Config = (),
+            InitError = (),
+            Error = actix_web::Error,
+        >,
+    > {
+        scope::scope("/watch_history")
+            .wrap(from_fn(auth_middleware))
+            .service(get_watch_history)
+            .service(add_to_watch_history)
+            .service(remove_from_watch_history)
+    }
+}
+
+#[derive(Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+enum WatchHistoryOrder {
+    #[serde(rename = "added_date_asc")]
+    AddedDateAscending,
+    #[serde(rename = "added_date_desc")]
+    AddedDateDescending,
+}
+#[derive(Deserialize)]
+struct WatchHistoryPaginationRequest {
+    page: u32,
+    status: Option<WatchedState>,
+    order: Option<WatchHistoryOrder>,
+}
+
+#[utoipa::path(responses((status = OK, body = Vec<ExtendedWatchHistoryItem>)), security(("api_jwt_token" = [])))]
+#[get("/")]
+async fn get_watch_history(
+    account: Account,
+    pool: WebData,
+    params: web::Query<WatchHistoryPaginationRequest>,
+) -> actix_web::Result<impl Responder> {
+    let mut conn = get_db_conn!(pool);
+
+    match get_watch_history_by_account_id(
+        &mut conn,
+        &account.id,
+        params.page,
+        &params.status,
+        params.order == Some(WatchHistoryOrder::AddedDateAscending),
+    )
+    .await
+    {
+        Ok(history) => {
+            let history = history
+                .iter()
+                .map(|(metadata, video, channel)| ExtendedWatchHistoryItem {
+                    video: CreateVideo::from((video, channel)),
+                    metadata: metadata.clone(),
+                })
+                .collect::<Vec<_>>();
+            Ok(HttpResponse::Ok().json(history))
+        }
+        Err(err) => Err(error::ErrorInternalServerError(err)),
+    }
+}
+
+#[utoipa::path(responses((status = CREATED, body = ExtendedWatchHistoryItem)), security(("api_jwt_token" = [])))]
+#[put("/")]
+async fn add_to_watch_history(
+    account: Account,
+    pool: WebData,
+    watch_history_item: web::Json<ExtendedWatchHistoryItem>,
+) -> actix_web::Result<impl Responder> {
+    let mut conn = get_db_conn!(pool);
+
+    let mut watch_history_item = watch_history_item.into_inner();
+    watch_history_item.metadata.account_id = account.id;
+    watch_history_item.metadata.video_id = watch_history_item.video.id.clone();
+
+    validate_video_information_if_changed_single(&mut conn, &mut watch_history_item.video)
+        .await
+        .map_err(error::ErrorBadRequest)?;
+
+    add_video_to_watch_history(
+        &mut conn,
+        &watch_history_item.metadata,
+        &(&watch_history_item.video).into(),
+        &watch_history_item.video.uploader,
+    )
+    .await
+    .map_err(error::ErrorInternalServerError)?;
+
+    Ok(HttpResponse::Ok().json(watch_history_item))
+}
+
+#[utoipa::path(responses((status = OK)), security(("api_jwt_token" = [])))]
+#[delete("/{video_id}")]
+async fn remove_from_watch_history(
+    account: Account,
+    pool: WebData,
+    video_id: web::Path<String>,
+) -> actix_web::Result<impl Responder> {
+    let mut conn = get_db_conn!(pool);
+
+    match remove_video_from_watch_history(&mut conn, &account.id, &video_id).await {
+        Ok(()) => Ok(HttpResponse::Ok()),
+        Err(err) => Err(error::ErrorInternalServerError(err)),
+    }
+}

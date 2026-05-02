@@ -14,6 +14,7 @@ pub mod playlist_bookmarks;
 pub mod playlists;
 pub mod subscriptions;
 pub mod user;
+pub mod watch_history;
 
 // https://github.com/actix/actix-web/discussions/3074
 pub trait ScopedHandler {

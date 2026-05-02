@@ -15,6 +15,7 @@ use crate::{
     handlers::{
         ScopedHandler, health::HealthHandler, playlist_bookmarks::PlaylistBookmarksHandler,
         playlists::PlaylistsHandler, subscriptions::SubscriptionsHandler, user::UserHandler,
+        watch_history::WatchHistoryHandler,
     },
     openapi::ApiDoc,
 };
@@ -77,7 +78,8 @@ async fn main() -> io::Result<()> {
                     .service(UserHandler::get_service())
                     .service(SubscriptionsHandler::get_service())
                     .service(PlaylistsHandler::get_service())
-                    .service(PlaylistBookmarksHandler::get_service()),
+                    .service(PlaylistBookmarksHandler::get_service())
+                    .service(WatchHistoryHandler::get_service()),
             )
             .split_for_parts();
 

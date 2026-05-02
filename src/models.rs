@@ -53,6 +53,7 @@ pub struct Channel {
 #[diesel(belongs_to(Channel))]
 #[diesel(table_name = subscription)]
 pub struct Subscription {
+    #[serde(skip)]
     pub account_id: String,
     pub channel_id: String,
 }
@@ -74,6 +75,7 @@ pub struct Subscription {
 #[diesel(table_name = playlist)]
 pub struct Playlist {
     pub id: String,
+    #[serde(skip)]
     pub account_id: String,
     pub title: String,
     pub description: String,
@@ -150,6 +152,33 @@ pub struct PublicPlaylist {
 #[diesel(belongs_to(Account))]
 #[diesel(table_name = playlist_bookmark)]
 pub struct PlaylistBookmark {
+    #[serde(skip)]
     pub account_id: String,
     pub public_playlist_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, diesel_derive_enum::DbEnum, ToSchema)]
+pub enum WatchedState {
+    Planned,
+    Watching,
+    Complted,
+    Dropped,
+}
+
+#[derive(
+    Debug, Clone, Serialize, Deserialize, Queryable, Selectable, Insertable, ToSchema, Eq, PartialEq, AsChangeset
+)]
+#[diesel(primary_key(account_id, video_id))]
+#[diesel(belongs_to(Video))]
+#[diesel(belongs_to(Account))]
+#[diesel(table_name = watch_history)]
+pub struct WatchHistoryItem {
+    #[serde(skip)]
+    pub video_id: String,
+    #[serde(skip)]
+    pub account_id: String,
+    /// Date as UNIX timestamp (millis).
+    pub added_date: i64,
+    pub watched_state: WatchedState,
+    pub position_millis: Option<i32>,
 }
