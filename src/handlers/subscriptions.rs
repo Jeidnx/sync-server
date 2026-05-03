@@ -6,7 +6,6 @@ use utoipa_actix_web::scope;
 use crate::{
     DbConnection, WebData,
     database::{
-        channel::create_or_update_channel,
         subscription::{
             add_subscription_by_account_id, get_subscription_channel_by_account_id,
             get_subscriptions_by_account_id, remove_subscription_by_account_id,
@@ -177,7 +176,7 @@ async fn get_subscription_group(
     Ok(HttpResponse::Ok().json(extended_subscription_group))
 }
 
-#[utoipa::path(responses((status = CREATED, body = ExtendedSubscriptionGroup)), security(("api_jwt_token" = [])))]
+#[utoipa::path(responses((status = CREATED, body = SubscriptionGroup)), security(("api_jwt_token" = [])))]
 #[post("/")]
 async fn create_subscription_group(
     account: Account,
@@ -250,18 +249,18 @@ async fn verify_is_subscription_group_owner(
 }
 
 #[utoipa::path(responses((status = OK)), security(("api_jwt_token" = [])))]
-#[put("/{subscription_group_id}/channels")]
+#[put("/{subscription_group_id}/channels/{channel_id}")]
 async fn add_to_subscription_group(
     account: Account,
     pool: WebData,
-    subscription_group_id: web::Path<String>,
-    channel: web::Json<Channel>,
+    path: web::Path<(String, String)>,
 ) -> actix_web::Result<impl Responder> {
     let mut conn = get_db_conn!(pool);
+    let (subscription_group_id, channel_id) = path.into_inner();
 
     verify_is_subscription_group_owner(&mut conn, &subscription_group_id, &account.id).await?;
 
-    let subscription = get_subscription_channel_by_account_id(&mut conn, &account.id, &channel.id)
+    let subscription = get_subscription_channel_by_account_id(&mut conn, &account.id, &channel_id)
         .await
         .map_err(error::ErrorInternalServerError)?;
     if subscription.is_none() {
@@ -273,7 +272,7 @@ async fn add_to_subscription_group(
     // we don't have to update the channel information in the database because we can assume that it's already
     // up to date, given that the user already subscribed to that channel
 
-    add_channel_to_subscription_group(&mut conn, &subscription_group_id, &channel.id)
+    add_channel_to_subscription_group(&mut conn, &subscription_group_id, &channel_id)
         .await
         .map_err(error::ErrorInternalServerError)?;
 
