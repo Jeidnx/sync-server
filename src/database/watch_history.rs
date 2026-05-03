@@ -102,3 +102,14 @@ pub async fn remove_video_from_watch_history(
 
     Ok(())
 }
+
+pub async fn clear_watch_history_by_account_id(
+    conn: &mut DbConnection,
+    account_id_: &str,
+) -> Result<(), DbError> {
+    diesel::delete(watch_history.filter(account_id.eq(account_id_.to_string())))
+        .execute(conn)
+        .await?;
+
+    Ok(())
+}

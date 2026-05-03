@@ -5,8 +5,8 @@ use utoipa_actix_web::scope;
 use crate::{
     WebData,
     database::watch_history::{
-        add_video_to_watch_history, get_watch_history_by_account_id, get_watch_history_entry,
-        remove_video_from_watch_history,
+        add_video_to_watch_history, clear_watch_history_by_account_id,
+        get_watch_history_by_account_id, get_watch_history_entry, remove_video_from_watch_history,
     },
     dto::{CreateVideo, ExtendedWatchHistoryItem},
     get_db_conn,
@@ -29,9 +29,10 @@ impl ScopedHandler for WatchHistoryHandler {
         scope::scope("/watch_history")
             .wrap(from_fn(auth_middleware))
             .service(get_watch_history)
-            .service(add_to_watch_history)
-            .service(remove_from_watch_history)
             .service(get_from_watch_history)
+            .service(add_to_watch_history)
+            .service(clear_watch_history)
+            .service(remove_from_watch_history)
     }
 }
 
@@ -129,6 +130,17 @@ async fn add_to_watch_history(
     .map_err(error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(watch_history_item))
+}
+
+#[utoipa::path(responses((status = OK)), security(("api_jwt_token" = [])))]
+#[delete("/")]
+async fn clear_watch_history(account: Account, pool: WebData) -> actix_web::Result<impl Responder> {
+    let mut conn = get_db_conn!(pool);
+
+    match clear_watch_history_by_account_id(&mut conn, &account.id).await {
+        Ok(()) => Ok(HttpResponse::Ok()),
+        Err(err) => Err(error::ErrorInternalServerError(err)),
+    }
 }
 
 #[utoipa::path(responses((status = OK)), security(("api_jwt_token" = [])))]
