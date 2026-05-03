@@ -65,15 +65,10 @@ pub async fn get_watch_history_entry(
         .optional()
 }
 
-pub async fn add_video_to_watch_history(
+pub async fn add_or_update_video_to_watch_history(
     conn: &mut DbConnection,
     watch_history_item_: &WatchHistoryItem,
-    video_: &Video,
-    channel_: &Channel,
 ) -> Result<(), DbError> {
-    create_or_update_channel(conn, channel_).await?;
-    create_or_update_video(conn, video_).await?;
-
     diesel::insert_into(watch_history)
         .values(watch_history_item_)
         .on_conflict((video_id, account_id))

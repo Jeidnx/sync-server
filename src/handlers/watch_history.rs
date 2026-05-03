@@ -1,17 +1,24 @@
-use actix_web::{HttpResponse, Responder, delete, error, get, middleware::from_fn, put, web};
+use actix_web::{
+    HttpResponse, Responder, delete, error, get, middleware::from_fn, patch, put, web,
+};
 use serde::Deserialize;
 use utoipa_actix_web::scope;
 
 use crate::{
     WebData,
-    database::watch_history::{
-        add_video_to_watch_history, clear_watch_history_by_account_id,
-        get_watch_history_by_account_id, get_watch_history_entry, remove_video_from_watch_history,
+    database::{
+        channel::create_or_update_channel,
+        video::create_or_update_video,
+        watch_history::{
+            add_or_update_video_to_watch_history, clear_watch_history_by_account_id,
+            get_watch_history_by_account_id, get_watch_history_entry,
+            remove_video_from_watch_history,
+        },
     },
     dto::{CreateVideo, ExtendedWatchHistoryItem},
     get_db_conn,
     handlers::{ScopedHandler, user::auth_middleware},
-    models::{Account, WatchedState},
+    models::{Account, WatchHistoryItem, WatchedState},
     validation::validate_video_information_if_changed_single,
 };
 
@@ -120,14 +127,39 @@ async fn add_to_watch_history(
         .await
         .map_err(error::ErrorBadRequest)?;
 
-    add_video_to_watch_history(
-        &mut conn,
-        &watch_history_item.metadata,
-        &(&watch_history_item.video).into(),
-        &watch_history_item.video.uploader,
-    )
-    .await
-    .map_err(error::ErrorInternalServerError)?;
+    // store video metadata in database
+    create_or_update_channel(&mut conn, &watch_history_item.video.uploader)
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+    create_or_update_video(&mut conn, &(&watch_history_item.video).into())
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+
+    // create actual watch history entry
+    add_or_update_video_to_watch_history(&mut conn, &watch_history_item.metadata)
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+
+    Ok(HttpResponse::Ok().json(watch_history_item))
+}
+
+#[utoipa::path(responses((status = OK)), security(("api_jwt_token" = [])))]
+#[patch("/{video_id}")]
+async fn update_watch_history_video_state(
+    account: Account,
+    pool: WebData,
+    watch_history_item: web::Json<WatchHistoryItem>,
+    video_id: web::Path<String>,
+) -> actix_web::Result<impl Responder> {
+    let mut conn = get_db_conn!(pool);
+
+    let mut watch_history_item = watch_history_item.into_inner();
+    watch_history_item.video_id = video_id.into_inner();
+    watch_history_item.account_id = account.id;
+
+    add_or_update_video_to_watch_history(&mut conn, &watch_history_item)
+        .await
+        .map_err(error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok().json(watch_history_item))
 }
