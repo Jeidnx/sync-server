@@ -199,7 +199,7 @@ pub struct PlaylistBookmark {
 pub enum WatchedState {
     Planned,
     Watching,
-    Complted,
+    Completed,
     Dropped,
 }
 
